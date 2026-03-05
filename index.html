@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Digitalizing Restaurant Management</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+  <style>
+    .custom-gradient { background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%); }
+    .page { display: none; }
+    .page.active { display: block; animation: slideIn 0.3s ease-out; }
+    @keyframes slideIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    .menu-img { width: 80px; height: 60px; object-fit: cover; border-radius: 8px; }
+    .star-rating { direction: rtl; display: inline-flex; }
+    .star-rating input { display: none; }
+    .star-rating label { color: #ddd; font-size: 1.5rem; padding: 0 0.1rem; cursor: pointer; transition: 0.2s; }
+    .star-rating label:hover, .star-rating label:hover ~ label, .star-rating input:checked ~ label { color: #f59e0b; }
+    .pulse-btn { animation: pulse-shadow 2s infinite; }
+    @keyframes pulse-shadow { 0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4); } 70% { box-shadow: 0 0 0 15px rgba(34, 197, 94, 0); } 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); } }
+  </style>
+</head>
+<body class="bg-slate-50 min-h-screen font-sans text-gray-800">
+
+<nav class="custom-gradient text-white shadow-2xl p-4 sticky top-0 z-50">
+  <div class="container mx-auto flex justify-between items-center">
+    <h1 class="text-xl font-black italic tracking-tighter">
+      <i class="fas fa-utensils-alt mr-2"></i>DRM SYSTEM
+    </h1>
+    <div class="flex space-x-6 font-semibold">
+      <button onclick="showPage('reservationPage')" class="hover:text-blue-200">Reservation</button>
+      <button onclick="showPage('restaurantPage')" id="navMenu" class="hidden hover:text-blue-200">Ordering</button>
+    </div>
+  </div>
+</nav>
+
+<!-- Global Notification Toast -->
+<div id="toast" class="fixed top-20 right-5 z-[100] transform translate-x-[150%] transition-transform duration-500 bg-gray-900 text-white px-6 py-4 rounded-2xl shadow-2xl border-l-4 border-blue-500 flex items-center gap-3">
+  <i id="toastIcon" class="fas fa-info-circle"></i>
+  <span id="toastMsg"></span>
+</div>
+
+<main class="container mx-auto p-4 md:p-8 max-w-6xl">
+
+  <!-- Reservation Section -->
+  <div id="reservationPage" class="page active bg-white rounded-3xl shadow-xl p-6 md:p-10 border border-blue-100">
+    <div class="text-center mb-10">
+      <h2 class="text-4xl font-extrabold text-blue-900">Digitalizing Restaurant Management</h2>
+      <p class="text-gray-500 mt-2">Efficiently managing your dining experience through digital innovation.</p>
+    </div>
+
+    <div id="bookingForm" class="grid grid-cols-1 md:grid-cols-2 gap-8">
+      <div class="space-y-4">
+        <label class="block font-bold text-gray-700">Select Destination</label>
+        <select id="resId" onchange="previewMenuBeforeBooking()" class="w-full border-2 border-blue-50 p-4 rounded-2xl focus:border-blue-500 outline-none bg-blue-50/30 transition">
+          <option value="1">The Royal Feast (Restaurant A)</option>
+          <option value="2">Urban Cravings (Restaurant B)</option>
+          <option value="3">Blue Ocean Seafood (Restaurant C)</option>
+        </select>
+
+        <label class="block font-bold text-gray-700">Booking Date</label>
+        <input type="date" id="resDate" class="w-full border-2 border-blue-50 p-4 rounded-2xl outline-none focus:border-blue-500">
+      </div>
+      <div class="space-y-4">
+        <label class="block font-bold text-gray-700">Preferred Time</label>
+        <input type="time" id="resTime" class="w-full border-2 border-blue-50 p-4 rounded-2xl outline-none focus:border-blue-500">
+
+        <label class="block font-bold text-gray-700">Guest Count</label>
+        <input type="number" id="resGuests" placeholder="How many people?" class="w-full border-2 border-blue-50 p-4 rounded-2xl outline-none focus:border-blue-500">
+      </div>
+    </div>
+
+    <!-- Quick Menu Preview (Before Booking) -->
+    <div id="quickMenuContainer" class="mt-8 border-t border-gray-100 pt-8">
+      <h3 class="text-xl font-black text-blue-900 mb-4 flex items-center gap-2">
+        <i class="fas fa-book-open"></i> Quick Menu Preview
+      </h3>
+      <div class="overflow-x-auto rounded-2xl border border-blue-50">
+        <table class="w-full text-left bg-blue-50/20">
+          <thead class="bg-blue-100/50 text-blue-900 uppercase text-xs font-black">
+          <tr>
+            <th class="p-4">Dish Details</th>
+            <th class="p-4">Price</th>
+          </tr>
+          </thead>
+          <tbody id="quickMenuBody" class="divide-y divide-blue-50">
+          <!-- Populated by JS -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <button id="verifyBtn" onclick="submitReservation()" class="w-full mt-10 custom-gradient text-white text-lg font-black py-5 rounded-2xl shadow-xl hover:scale-[1.01] active:scale-95 transition">
+      VERIFY AVAILABILITY
+    </button>
+    <div id="resFeedback" class="mt-6 text-center font-bold p-5 rounded-2xl hidden flex-col items-center gap-4"></div>
+  </div>
+
+  <!-- Menu & Ordering Section (Full Menu with Add Buttons) -->
+  <div id="restaurantPage" class="page space-y-8">
+    <div class="bg-white p-6 md:p-8 rounded-3xl shadow-xl">
+      <div class="flex flex-col md:flex-row justify-between items-center gap-4 mb-8">
+        <div>
+          <h2 class="text-2xl font-black text-blue-900">Digital Menu</h2>
+          <p class="text-sm text-gray-400" id="activeStore"></p>
+        </div>
+        <div class="flex items-center bg-blue-50 px-6 py-2 rounded-full">
+          <i class="fas fa-shopping-basket text-blue-600 mr-2"></i>
+          <span class="font-bold text-blue-900" id="cartCount">0 Items</span>
+        </div>
+      </div>
+
+      <div class="overflow-x-auto border border-gray-100 rounded-2xl">
+        <table class="w-full text-left border-collapse">
+          <thead class="bg-slate-50 text-slate-500 uppercase text-xs font-black">
+          <tr>
+            <th class="p-5">Image</th>
+            <th class="p-5">Dish Details</th>
+            <th class="p-5">Price</th>
+            <th class="p-5 text-center">Qty</th>
+            <th class="p-5 text-center">Action</th>
+          </tr>
+          </thead>
+          <tbody id="menuTableBody" class="divide-y divide-gray-50"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div class="lg:col-span-2 bg-white p-8 rounded-3xl shadow-xl border-t-8 border-blue-600">
+        <h3 class="text-xl font-bold mb-6 text-gray-800">Your Selection</h3>
+        <div id="cartList" class="space-y-4 min-h-[100px]"></div>
+        <div class="mt-8 pt-8 border-t-2 border-dashed flex flex-col items-end gap-4">
+          <div class="text-3xl font-black text-blue-900">Total: <span id="cartTotal">₹0</span></div>
+
+          <div class="flex gap-4 w-full md:w-auto">
+            <button id="orderBtn" onclick="processOrderFlow()" class="flex-1 md:flex-none bg-blue-600 hover:bg-blue-700 text-white px-12 py-4 rounded-2xl font-black shadow-lg transition">
+              PLACE ORDER
+            </button>
+            <button id="payBtn" onclick="openPayment()" class="hidden flex-1 md:flex-none bg-green-600 hover:bg-green-700 text-white px-12 py-4 rounded-2xl font-black shadow-lg transition pulse-btn">
+              PAY NOW
+            </button>
+          </div>
+        </div>
+      </div>
+      <div class="bg-white p-8 rounded-3xl shadow-xl h-fit">
+        <h3 class="text-xl font-bold mb-4 text-gray-800 text-center">Rate Your Experience</h3>
+
+        <div class="flex justify-center mb-4">
+          <div class="star-rating">
+            <input type="radio" id="star5" name="rating" value="5"><label for="star5" class="fas fa-star"></label>
+            <input type="radio" id="star4" name="rating" value="4"><label for="star4" class="fas fa-star"></label>
+            <input type="radio" id="star3" name="rating" value="3"><label for="star3" class="fas fa-star"></label>
+            <input type="radio" id="star2" name="rating" value="2"><label for="star2" class="fas fa-star"></label>
+            <input type="radio" id="star1" name="rating" value="1"><label for="star1" class="fas fa-star"></label>
+          </div>
+        </div>
+
+        <textarea id="comment" class="w-full p-4 bg-gray-50 border rounded-2xl h-32 outline-none mb-4 focus:border-blue-500" placeholder="How was the food?"></textarea>
+        <button onclick="postFeedback()" class="w-full py-4 bg-gray-900 text-white font-bold rounded-2xl hover:bg-black transition">SUBMIT REVIEW</button>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- Payment Modal -->
+<div id="paymentModal" class="fixed inset-0 bg-blue-900/40 backdrop-blur-sm hidden items-center justify-center p-4 z-[100]">
+  <div class="bg-white p-10 rounded-[2.5rem] max-w-sm w-full text-center shadow-2xl">
+    <h3 class="text-2xl font-black text-gray-800">Settle Bill</h3>
+    <p id="billAmount" class="text-blue-600 font-bold text-xl my-4"></p>
+    <div class="bg-gray-50 p-4 rounded-2xl mb-6">
+      <img id="qrImage" src="" class="mx-auto w-44 h-44">
+      <p class="text-xs text-gray-400 mt-2 uppercase tracking-widest font-black">Scan to Pay</p>
+    </div>
+    <button onclick="finalizeTransaction()" class="w-full bg-blue-600 text-white py-5 rounded-2xl font-black shadow-lg">PAID SUCCESSFULLY</button>
+    <button onclick="closeModal()" class="mt-4 text-gray-400 font-bold text-sm">Close</button>
+  </div>
+</div>
+
+<script>
+  const storeMenus = {
+      1: [ // The Royal Feast - Authentic Indian Fine Dining
+          { id: 10, name: "Hyderabadi Dum Biryani", price: 350, desc: "Basmati with tender meat", img: "https://images.unsplash.com/photo-1563379091339-03b21bc4a6f8?w=200&h=150&fit=crop" },
+          { id: 11, name: "Paneer Butter Masala", price: 280, desc: "Rich tomato cream gravy", img: "https://images.unsplash.com/photo-1631452180519-c014fe946bc7?w=200&h=150&fit=crop" },
+          { id: 12, name: "Butter Naan", price: 45, desc: "Clay oven baked", img: "https://images.unsplash.com/photo-1533777857889-4be7c70b33f7?w=200&h=150&fit=crop" },
+          { id: 14, name: "Dal Makhani", price: 240, desc: "Slow cooked black lentils", img: "https://images.unsplash.com/photo-1546833999-b9f581a1996d?w=200&h=150&fit=crop" },
+          { id: 15, name: "Gulab Jamun (2 pcs)", price: 80, desc: "Sweet milk solids in syrup", img: "https://images.unsplash.com/photo-1589119908995-c6837fa14848?w=200&h=150&fit=crop" },
+          { id: 50, name: "Saffron Tandoori Chicken", price: 420, desc: "Marinated with royal spices", img: "https://images.unsplash.com/photo-1599487488170-d11ec9c172f0?w=200&h=150&fit=crop" }
+      ],
+      2: [ // Urban Cravings - Fast Food & Snacks
+          { id: 20, name: "Classic Maharaj Burger", price: 180, desc: "Double patty special", img: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=200&h=150&fit=crop" },
+          { id: 21, name: "Peri Peri Fries", price: 120, desc: "Crispy and spicy", img: "https://images.unsplash.com/photo-1573082833947-3e9914c670fe?w=200&h=150&fit=crop" },
+          { id: 22, name: "Veg Grilled Sandwich", price: 140, desc: "Molten cheese filling", img: "https://images.unsplash.com/photo-1528735602780-2552fd46c7af?w=200&h=150&fit=crop" },
+          { id: 23, name: "Oreo Thick Milkshake", price: 160, desc: "Creamy delight", img: "https://images.unsplash.com/photo-1572490122747-3968b75cc699?w=200&h=150&fit=crop" },
+          { id: 15, name: "Gulab Jamun (2 pcs)", price: 85, desc: "Sweet milk solids in syrup", img: "https://images.unsplash.com/photo-1589119908995-c6837fa14848?w=200&h=150&fit=crop" },
+          { id: 51, name: "Spicy Paneer Wrap", price: 190, desc: "Tortilla wrapped goodness", img: "https://images.unsplash.com/photo-1626700051175-6818013e1d4f?w=200&h=150&fit=crop" }
+      ],
+      3: [ // Blue Ocean Seafood - Premium Coastal Cuisine
+          { id: 30, name: "Lemon Garlic Fish", price: 480, desc: "Fresh sea bass fillet", img: "https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?w=200&h=150&fit=crop" },
+          { id: 31, name: "Prawn Masala Fry", price: 420, desc: "Coastal style spice mix", img: "https://images.unsplash.com/photo-1565680018434-b513d5e5fd47?w=200&h=150&fit=crop" },
+          { id: 32, name: "Lobster Thermidor", price: 1450, desc: "Premium cheesy lobster", img: "https://images.unsplash.com/photo-1559742811-822873691df8?w=200&h=150&fit=crop" },
+          { id: 34, name: "Tender Coconut Pudding", price: 150, desc: "Soft and refreshing", img: "https://images.unsplash.com/photo-1541783245831-57d6fb0926d3?w=200&h=150&fit=crop" },
+          { id: 10, name: "Seafood Dum Biryani", price: 410, desc: "Coastal twist on the classic", img: "https://images.unsplash.com/photo-1589302168068-964664d93dc0?w=200&h=150&fit=crop" },
+          { id: 52, name: "Crab Curry Special", price: 550, desc: "Chef's secret coconut gravy", img: "https://images.unsplash.com/photo-1625943555419-56a2cb596640?w=200&h=150&fit=crop" }
+      ]
+  };
+
+  let myCart = [];
+  let activeRid = null;
+  let isOrderPlaced = false;
+
+  window.onload = function() {
+      previewMenuBeforeBooking();
+  }
+
+  function showPage(id) {
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      document.getElementById(id).classList.add('active');
+  }
+
+  function notify(msg, icon = 'fa-info-circle') {
+      const toast = document.getElementById('toast');
+      document.getElementById('toastMsg').innerText = msg;
+      document.getElementById('toastIcon').className = `fas ${icon}`;
+      toast.style.transform = 'translateX(0)';
+      setTimeout(() => { toast.style.transform = 'translateX(150%)'; }, 4000);
+  }
+
+  // New function to preview menu before booking
+  function previewMenuBeforeBooking() {
+      const rid = document.getElementById('resId').value;
+      const quickBody = document.getElementById('quickMenuBody');
+      quickBody.innerHTML = '';
+
+      storeMenus[rid].forEach(item => {
+          quickBody.innerHTML += `
+              <tr class="hover:bg-blue-50/50 transition border-b border-blue-50/50">
+                  <td class="p-4">
+                      <div class="font-bold text-gray-800 text-sm">${item.name}</div>
+                      <div class="text-[10px] text-gray-400 font-normal leading-tight">${item.desc}</div>
+                  </td>
+                  <td class="p-4 font-black text-blue-700 text-sm whitespace-nowrap">₹${item.price}</td>
+              </tr>
+          `;
+      });
+  }
+
+  async function submitReservation() {
+      const rid = document.getElementById('resId').value;
+      const fb = document.getElementById('resFeedback');
+      const verifyBtn = document.getElementById('verifyBtn');
+
+      fb.className = "mt-6 text-center font-bold p-5 rounded-2xl flex flex-col items-center gap-4 bg-blue-100 text-blue-700";
+      fb.innerHTML = `<span>Checking digital floor plan...</span>`;
+      fb.classList.remove('hidden');
+
+      setTimeout(() => {
+          if (rid === "2") {
+              displayFullError(fb);
+          } else {
+              notify("Table Secured!", "fa-check-circle");
+              activeRid = rid;
+
+              // Show confirmation with menu option directly
+              fb.className = "mt-6 text-center font-bold p-6 rounded-3xl flex flex-col items-center gap-4 bg-green-50 text-green-700 border-2 border-green-100 shadow-sm";
+              fb.innerHTML = `
+                  <div class="flex items-center gap-3 text-lg">
+                      <i class="fas fa-check-circle text-2xl"></i>
+                      <span>Booking Confirmed!</span>
+                  </div>
+                  <p class="text-sm font-normal text-green-600">Your table at <b>${document.querySelector(`#resId option[value="${rid}"]`).innerText}</b> is reserved.</p>
+
+                  <div class="flex gap-3 w-full max-w-sm mt-2">
+                      <button onclick="goToOrdering()" class="flex-1 bg-green-600 text-white px-6 py-4 rounded-2xl font-black hover:bg-green-700 transition flex items-center justify-center gap-2 shadow-lg">
+                          <i class="fas fa-shopping-cart"></i> GO TO ORDERING
+                      </button>
+                  </div>
+              `;
+              initMenu();
+          }
+      }, 800);
+  }
+
+  function goToOrdering() {
+      showPage('restaurantPage');
+  }
+
+  function displayFullError(element) {
+      element.className = "mt-6 text-center font-bold p-6 rounded-3xl flex flex-col items-center gap-4 bg-red-50 text-red-700 border-2 border-red-100 shadow-sm";
+      element.innerHTML = `
+          <div class="flex items-center gap-3 text-lg">
+              <i class="fas fa-exclamation-triangle"></i>
+              <span>Table is not available! Full capacity reached.</span>
+          </div>
+          <p class="text-sm font-normal text-red-500">Urban Cravings is currently fully booked. Please try another destination.</p>
+          <button onclick="focusRestrauntSelect()" class="bg-red-600 text-white px-8 py-3 rounded-full font-bold hover:bg-red-700 transition">
+              CHECK ANOTHER RESTAURANT
+          </button>
+      `;
+      notify("Capacity Reached", "fa-exclamation-triangle");
+  }
+
+  function focusRestrauntSelect() {
+      const select = document.getElementById('resId');
+      document.getElementById('resFeedback').classList.add('hidden');
+      select.focus();
+      select.classList.add('ring-4', 'ring-red-200');
+      setTimeout(() => select.classList.remove('ring-4', 'ring-red-200'), 2000);
+  }
+
+  function initMenu() {
+      if (!activeRid) return;
+      const name = document.querySelector(`#resId option[value="${activeRid}"]`).innerText;
+      document.getElementById('activeStore').innerText = `Dine-in at: ${name}`;
+      document.getElementById('navMenu').classList.remove('hidden');
+      renderTable();
+  }
+
+  function renderTable() {
+      const tbody = document.getElementById('menuTableBody');
+      tbody.innerHTML = '';
+      if (!activeRid) return;
+
+      storeMenus[activeRid].forEach(item => {
+          const inCart = myCart.filter(c => c.id === item.id).length;
+          tbody.innerHTML += `
+              <tr class="hover:bg-blue-50/50 transition border-b border-gray-50 last:border-none">
+                  <td class="p-5"><img src="${item.img}" class="menu-img shadow-sm" alt="${item.name}"></td>
+                  <td class="p-5">
+                      <div class="font-bold text-gray-800">${item.name}</div>
+                      <div class="text-xs text-gray-400">${item.desc}</div>
+                  </td>
+                  <td class="p-5 font-bold text-blue-700">₹${item.price}</td>
+                  <td class="p-5 text-center font-black text-gray-600">${inCart}</td>
+                  <td class="p-5 text-center">
+                      <button onclick="addToCart(${item.id})" class="bg-blue-600 hover:bg-blue-800 text-white w-10 h-10 rounded-full transition shadow-md">
+                          <i class="fas ${isOrderPlaced ? 'fa-redo-alt' : 'fa-plus'}"></i>
+                      </button>
+                  </td>
+              </tr>
+          `;
+      });
+  }
+
+  function addToCart(itemId) {
+      const product = storeMenus[activeRid].find(i => i.id === itemId);
+      myCart.push(product);
+      renderTable();
+      refreshCart();
+  }
+
+  function removeItem(idx) {
+      myCart.splice(idx, 1);
+      renderTable();
+      refreshCart();
+  }
+
+  function refreshCart() {
+      const list = document.getElementById('cartList');
+      const totalDisplay = document.getElementById('cartTotal');
+      const countDisplay = document.getElementById('cartCount');
+      list.innerHTML = '';
+      let sum = 0;
+      myCart.forEach((item, index) => {
+          sum += item.price;
+          list.innerHTML += `
+              <div class="flex justify-between items-center bg-gray-50 p-4 rounded-xl border border-gray-100">
+                  <span class="font-bold text-gray-700">${item.name}</span>
+                  <div class="flex items-center gap-4">
+                      <span class="text-blue-500 font-bold">₹${item.price}</span>
+                      <button onclick="removeItem(${index})" class="text-red-400 hover:text-red-600"><i class="fas fa-times"></i></button>
+                  </div>
+              </div>
+          `;
+      });
+      if(myCart.length === 0) list.innerHTML = `<div class="text-center text-gray-300 py-10 font-bold italic">Cart is empty</div>`;
+      totalDisplay.innerText = `₹${sum}`;
+      countDisplay.innerText = `${myCart.length} Items`;
+  }
+
+  function processOrderFlow() {
+      if(myCart.length === 0) return notify("Select items first!", "fa-shopping-cart");
+
+      isOrderPlaced = true;
+      notify("Order Placed! The kitchen is starting now.", "fa-fire");
+      document.getElementById('payBtn').classList.remove('hidden');
+  }
+
+  function openPayment() {
+      const total = myCart.reduce((a, b) => a + b.price, 0);
+      document.getElementById('billAmount').innerText = `Total Payable: ₹${total}`;
+      document.getElementById('qrImage').src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=DRM_Pay_Ref_${Date.now()}`;
+      document.getElementById('paymentModal').classList.replace('hidden', 'flex');
+  }
+
+  function closeModal() { document.getElementById('paymentModal').classList.replace('flex', 'hidden'); }
+
+  function finalizeTransaction() {
+      notify("Payment Successful! Have a great day.", "fa-check-double");
+      myCart = [];
+      isOrderPlaced = false;
+      renderTable();
+      refreshCart();
+      closeModal();
+      document.getElementById('payBtn').classList.add('hidden');
+  }
+
+  function postFeedback() {
+      const stars = document.querySelector('input[name="rating"]:checked')?.value || 0;
+      if(stars === 0) return notify("Please select a star rating", "fa-star");
+
+      notify(`Thank you for your ${stars}-star feedback!`, "fa-heart");
+      document.getElementById('comment').value = '';
+      document.querySelectorAll('input[name="rating"]').forEach(i => i.checked = false);
+  }
+</script>
+</body>
+</html>
